@@ -5,17 +5,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-################################################################################
-#Query and load the data
-################################################################################
-#Query
+pollutants = pd.read_csv('http://dd.eionet.europa.eu/vocabulary/aq/pollutant/csv',
+                         header = 0, usecols = ['URI', 'Notation'])
+pollutants['URI'] = pollutants['URI'].str.replace(r'\D', '')
+pollutants
+
+'''
+Query and load the data
+'''
 response = requests.get('https://fme.discomap.eea.europa.eu/fmedatastreaming/AirQualityDownload/AQData_Extract.fmw?CountryCode=BE&CityName=Bruxelles%20/%20Brussel&Pollutant=8&Year_from=2019&Year_to=2020&Station=&Samplingpoint=&Source=E2a&Output=HTML&UpdateDate=&TimeCoverage=Year')
 #The request can be optimized further
 
 #Some commands to check the properties of the response:
-#response.headers  #1
-#response.encoding  #2
-#response.text  #3
+response.headers  #1
+response.encoding  #2
+response.text  #3
 
 #Use BeautifulSoup(kwargs) to parse urls from the response into a list
 soup = BeautifulSoup(response.content, "lxml")
@@ -84,7 +88,7 @@ ax0.set_ylabel("NO2 Concentration")
 background_data = background_data[background_data['Altitude']<=20]
 background_data[['Concentration','DatetimeEnd']].groupby(['DatetimeEnd'], as_index = False).count().max()
 #There is maximum 2 points per hour. For the worst-case scenario we take the maximum.
-background_data_max = background_data[['Concentration','DatetimeEnd']].groupby(['DatetimeEnd'], as_index = False).max().reset_index()
+background_data_max = background_data[['Concentration','DatetimeEnd','Longitude','Latitude']].groupby(['DatetimeEnd'], as_index = False).max().reset_index()
 background_data_max.columns
 
 time = mdates.date2num(background_data_max['DatetimeEnd'])
