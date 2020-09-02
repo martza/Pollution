@@ -102,12 +102,18 @@ EU_countries = country_city_list[0].unique()                                    
 pollutants = pd.read_csv(
     'http://dd.eionet.europa.eu/vocabulary/aq/pollutant/csv',
      header = 0, usecols = ['URI', 'Notation'], index_col = 'URI')                                 # list of pollutants [name, code]
-pollutants.index = pollutants.index.str.replace(r'\D', '')                          # replace the url with the code
+pollutants.index = pollutants.index.str.replace(r'\D', '')                      # replace the url with the code
 
 metadata = pd.read_csv(
     'https://discomap.eea.europa.eu/map/fme/metadata/PanEuropean_metadata.csv',
-     sep = '\t', usecols = ['Countrycode','AirPollutantCode']).drop_duplicates()
+     sep = '\t', usecols = ['Countrycode', 'AirPollutantCode']).drop_duplicates()
 metadata.AirPollutantCode = metadata.AirPollutantCode.str.replace(r'\D','')     # replace the url with the code
+
+coordinates = pd.read_csv(
+    'https://discomap.eea.europa.eu/map/fme/metadata/PanEuropean_metadata.csv',
+     sep = '\t', usecols = ['AirQualityStationEoICode', 'Longitude', 'Latitude',
+                            'Altitude']).drop_duplicates()                      # list of sampling points with local coordinates
+
 '''
 B. Take user input
     * Country
@@ -117,6 +123,9 @@ B. Take user input
 country = choose_from_list('Choose a Country Code :\n', EU_countries).upper()   # Country
 country_pollutants_codes = pd.Series(
     metadata[metadata.Countrycode == country].AirPollutantCode.unique())        # List of pollutants codes for the country
+# For each pollutant code in the list of pollutant codes, map the notation.
+# The index of the pollutants dataframe coincides with the country-pollutants
+# codes.
 country_pollutants = country_pollutants_codes.map(pollutants['Notation'])       # List of pollutants for the country
 
 cities_list = country_city_list[country_city_list[0] == country][1]
@@ -137,3 +146,8 @@ start_time = time.perf_counter()
 dataset = get_data(country, city, pollutant_code, year1, year2)
 time_elapsed = time.perf_counter()-start_time
 print(f'It took {time_elapsed:.3f} seconds to extract the dataset.')
+
+# Merge coordinates with pollution concentration
+dataset_coordinates = pd.merge(dataset, coordinates,
+                               on = 'AirQualityStationEoICode')
+print(dataset_coordinates.head())
