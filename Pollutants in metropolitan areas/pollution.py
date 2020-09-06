@@ -96,6 +96,17 @@ def get_data(countrycode, cityname, pollutantcode, year_from, year_to) :
 
 def clean_data(data) :
 
+    '''
+    A FUNCTION that cleans the dataset from NAs and invalid points.
+
+    INPUT :
+        * data : The dataset
+
+    OUTPUT :
+        * A dataset with valid points
+        * A visualisation of validity and verification points
+
+    '''
     data['Concentration'] = data['Concentration'].fillna(0)
 
     # Check for NAs in Validity
