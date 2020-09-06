@@ -5,9 +5,22 @@ from bs4 import BeautifulSoup
 import time
 import sys
 import os
+import matplotlib.pyplot as plt
 
 eea_url = 'https://fme.discomap.eea.europa.eu/fmedatastreaming/AirQualityDownload/AQData_Extract.fmw'
 years_list = [str(x) for x in list(range(2013,2021))]
+# maximum pollution thresholds for each caregory in microgram/m3
+# taken from https://www.eea.europa.eu/themes/air/air-quality-index
+pollution_thresholds = pd.DataFrame( data = {
+    'pollutant' : ['PM2.5', 'PM10', 'NO2', 'O3', 'SO2'],
+    'Good' : ['10', '20', '40', '50', '100'],
+    'Fair' : ['20', '40', '90', '100', '200'],
+    'Moderate' : ['25', '50', '120', '130', '350'],
+    'Poor' : ['50', '100', '230', '240', '500'],
+    'Very Poor' : ['75', '150', '340', '380', '750'],
+    'Extremely Poor' : ['800', '1200', '1000', '800', '1250']
+}
+)
 
 def choose_from_list(text, list) :
     '''
@@ -81,6 +94,48 @@ def get_data(countrycode, cityname, pollutantcode, year_from, year_to) :
 
     return data
 
+def clean_data(data) :
+
+    data['Concentration'] = data['Concentration'].fillna(0)
+
+    # Check for NAs in Validity
+    unvalid_points = pd.isna(data['Validity']).sum()
+    print(f'There are {unvalid_points:.0f} points missing validation data.')
+
+    # Check for invalid points
+    validity_counts = data[['Concentration','Validity']].groupby(['Validity']).count()
+    validity_counts = validity_counts.rename(columns = {'Concentration':'Counts'})
+
+    # Check for NAs in Verification
+    unverified_points = pd.isna(data['Verification']).sum()
+    print(f'There are {unverified_points:.0f} points lacking verification data.')
+
+    # Check for data that lack verification
+    verification_counts = data[['Concentration','Verification']].groupby(['Verification']).count()
+    verification_counts = verification_counts.rename(columns = {'Concentration':'Counts'})
+    # Note that most of the data for 2019 and 2020 are not verified
+
+    # Visualise verified and valid points
+    fig, (ax1, ax2) = plt.subplots(2, figsize = (10,10))
+
+    ax1.bar(verification_counts.index, 'Counts', data = verification_counts,
+            label = 'Verification')
+    ax1.set(xlabel = 'Verification', ylabel = 'Counts')
+    ax1.legend()
+
+    ax2.bar(validity_counts.index, 'Counts', data = validity_counts,
+            label = 'Validity')
+    ax2.set(xlabel = 'Validity', ylabel = 'Counts')
+    ax2.legend()
+
+    fig.savefig('check.png')
+
+    # Remove invalid data, accept data that lack verification
+    data = data[data['Validity']==1] # Getting rid of invalid data
+    # Order data by datetime
+    data = data.sort_values(by = 'DatetimeEnd')
+
+    return data
 
 '''
 This code takes multiple input from the user and returns a heatmap of Pollution.
@@ -147,7 +202,14 @@ dataset = get_data(country, city, pollutant_code, year1, year2)
 time_elapsed = time.perf_counter()-start_time
 print(f'It took {time_elapsed:.3f} seconds to extract the dataset.')
 
+# Data preparation
+clean_dataset = clean_data(dataset)
+
+#Exploratory analysis
+
+print(clean_dataset['UnitOfMeasurement'].unique())
 # Merge coordinates with pollution concentration
-dataset_coordinates = pd.merge(dataset, coordinates,
+dataset_coordinates = pd.merge(clean_dataset, coordinates,
                                on = 'AirQualityStationEoICode')
 print(dataset_coordinates.head())
+print(pollution_thresholds)
