@@ -23,6 +23,7 @@ pollution_thresholds = pd.DataFrame( data = {
 )
 
 def choose_from_list(text, list) :
+
     '''
     A FUNCTION that provides the list of options to the user and requires from
     the user to choose one of the options available.
@@ -46,6 +47,7 @@ def choose_from_list(text, list) :
 
 
 def get_data(countrycode, cityname, pollutantcode, year_from, year_to) :
+
     '''
     A FUNCTION that extracts the dataset from the EEA according to the
     parameters specified by the user.
@@ -153,6 +155,38 @@ def clean_data(data) :
 
     return data
 
+def enrich_data(data, coordinates) :
+
+    '''
+    A FUNCTION that enriches the dataset with the following information:
+        * Year, month, day, hour, weekday
+        * Season
+        * Local coordinates
+
+    INPUT : the dataset
+
+    OUTPUT : The dataset with more information
+    '''
+
+    # Add to the dataset year, day, month, hour, weekday columns
+    data['year'] = pd.DatetimeIndex(data['DatetimeEnd']).year
+    data['month'] = pd.DatetimeIndex(data['DatetimeEnd']).month
+    data['day'] = pd.DatetimeIndex(data['DatetimeEnd']).day
+    data['hour'] = pd.DatetimeIndex(data['DatetimeEnd']).hour
+    data['weekday'] = data['DatetimeEnd'].dt.dayofweek
+
+    # Definition of a new categorical variable for the seasons
+    data['season'] = ''
+    data.loc[data['month'].isin([12,1,2]),'season'] = 'winter'
+    data.loc[data['month'].isin([3,4,5]),'season'] = 'spring'
+    data.loc[data['month'].isin([6,7,8]),'season'] = 'summer'
+    data.loc[data['month'].isin([9,10,11]),'season'] = 'autumn'
+
+    # Merge coordinates with pollution concentration
+    final_data = pd.merge(data, coordinates, on = 'AirQualityStationEoICode')
+
+    return final_data
+
 '''
 This code takes multiple input from the user and returns a heatmap of Pollution.
 Datasets : country-city list, vocabulary of pollutants, PanEuropean_metadata
@@ -221,11 +255,14 @@ print(f'It took {time_elapsed:.3f} seconds to extract the dataset.')
 # Data preparation
 clean_dataset = clean_data(dataset)
 
-#Exploratory analysis
+# Enrichment
+large_dataset = enrich_data(clean_dataset, coordinates)
 
-print(clean_dataset['UnitOfMeasurement'].unique())
-# Merge coordinates with pollution concentration
-dataset_coordinates = pd.merge(clean_dataset, coordinates,
-                               on = 'AirQualityStationEoICode')
+print('The unit(s) of measurement is/are:')
+print(large_dataset['UnitOfMeasurement'].unique())
+
+# Exploratory Data Analysis
+EDA_pollution(dataset_coordinates)
+
 print(dataset_coordinates.head())
 print(pollution_thresholds)
