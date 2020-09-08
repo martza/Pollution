@@ -97,19 +97,24 @@ def get_data(countrycode, cityname, pollutantcode, year_from, year_to) :
 def clean_data(data) :
 
     '''
-    A FUNCTION that cleans the dataset from NAs and invalid points.
+    A FUNCTION that cleans the dataset from NA and invalid points.
 
     INPUT :
         * data : The dataset
-
+    STEPS :
+        * Substitute NA in concentration with zero
+        * Visualise and remove invalid points
+        * Visualise unverified points
     OUTPUT :
         * A dataset with valid points
         * A visualisation of validity and verification points
 
     '''
+
+    # Subatitute NA with 0 in the Concentration
     data['Concentration'] = data['Concentration'].fillna(0)
 
-    # Check for NAs in Validity
+    # Check for NA in Validity
     unvalid_points = pd.isna(data['Validity']).sum()
     print(f'There are {unvalid_points:.0f} points missing validation data.')
 
