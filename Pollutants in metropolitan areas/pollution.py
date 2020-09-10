@@ -187,6 +187,90 @@ def enrich_data(data, coordinates) :
 
     return final_data
 
+def EDA_pollution(data) :
+    '''
+    A FUNCTION that explores the affect of different parameters (altitude, year,
+    month, hour, weekday, season) on the
+    concentration of the pollutant.
+
+    INPUT : the dataset
+    OUTPUT : plots
+
+    '''
+
+    # Grouping by altitude
+    data_altitude = data[['Concentration','Altitude']].groupby(['Altitude'],
+                    as_index = False).aggregate([np.mean,np.median]).reset_index()
+
+    # Checking for duplicates
+    duplicates = data[['SamplingPoint','Concentration',
+                'DatetimeEnd']].groupby(['SamplingPoint','DatetimeEnd'],
+                as_index = False).count()
+
+    print(f'Found maximum {duplicates.Concentration.max()} measurements for the same point')
+
+    # If there are duplicates taking the maximum concentration accross all
+    # sampling points. If not, max gives the single sampling point.
+    data_max = data.groupby(['DatetimeEnd'], as_index = False).max().reset_index()
+    plot_timeseries(data_max)
+    #Some statistics on the dataset:
+    data_max['Concentration'].describe()
+
+    # Grouping by year, month, hour, weekday, season
+    yearly_data = data_max[['Concentration', 'year']].groupby(['year']).mean()
+
+    monthly_data = data_max[['Concentration','year','month']].groupby(
+                    ['year','month']).mean()
+
+    hourly_data = data_max[['DatetimeEnd','Concentration','hour']].groupby(
+                    ['hour'], as_index = False).aggregate(
+                    [np.mean, np.median]).reset_index()
+
+    weekday_data = data_max[['DatetimeEnd','Concentration','weekday']].groupby(
+                    ['weekday'], as_index = False).aggregate(
+                    [np.mean, np.median]).reset_index()
+
+    seasonal_data = data_max[['DatetimeEnd','Concentration','season']].groupby(
+                    ['season'], as_index = False).aggregate(
+                    [np.mean, np.median]).reset_index()
+
+    # Plotting
+    fig, (ax0, ax1, ax2, ax3, ax4, ax5) = plt.subplots(6, figsize = (10,20))
+
+    data_altitude.plot.bar(x = 'Altitude',
+        y = [('Concentration','mean'),('Concentration','median')], rot = 0, ax = ax0)
+    ax0.legend(['mean', 'median'])
+    ax0.set(xlabel = 'altitude', ylabel = 'Concentration')
+
+    yearly_data['Concentration'].plot.bar(ax = ax1)
+    ax1.legend(['mean'])
+    ax1.set( xlabel = 'year', ylabel = 'Concentration')
+
+    monthly_data['Concentration'].plot.bar(ax = ax2)
+    ax2.legend(['mean'])
+    ax2.set( xlabel = 'month', ylabel = 'Concentration')
+
+    hourly_data.plot.bar(x = 'hour',
+            y = [('Concentration','mean'),('Concentration','median')],
+            rot = 0, ax = ax3)
+    ax3.legend(["mean", "median"])
+    ax3.set(xlabel = 'hour of the day', ylabel = "Concentration")
+
+    weekday_data.plot.bar(x = 'weekday',
+            y = [('Concentration','mean'),('Concentration','median')],
+            rot = 0, ax = ax4)
+    ax4.legend(["mean", "median"])
+    ax4.set(xlabel = 'weekday', ylabel = "Concentration")
+
+    seasonal_data.plot.bar(x = 'season',
+            y = [('Concentration','mean'),('Concentration','median')],
+            rot = 0, ax = ax5)
+    ax5.legend(["mean", "median"])
+    ax5.set(xlabel = 'season', ylabel = "Concentration")
+
+    fig.savefig('EDA.png')
+
+
 '''
 This code takes multiple input from the user and returns a heatmap of Pollution.
 Datasets : country-city list, vocabulary of pollutants, PanEuropean_metadata
