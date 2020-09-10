@@ -6,6 +6,7 @@ import time
 import sys
 import os
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 eea_url = 'https://fme.discomap.eea.europa.eu/fmedatastreaming/AirQualityDownload/AQData_Extract.fmw'
 years_list = [str(x) for x in list(range(2013,2021))]
@@ -269,6 +270,44 @@ def EDA_pollution(data) :
     ax5.set(xlabel = 'season', ylabel = "Concentration")
 
     fig.savefig('EDA.png')
+
+
+def plot_timeseries(data):
+
+    '''
+    A FUNCTION that plots concentration evolution with time.
+    INPUT: data
+    OUTPUT: plot
+    '''
+    
+    # variables to plot (values, time)
+    time = mdates.date2num(data['DatetimeEnd'])
+    values = data['Concentration']
+
+    # Definition of parameters that will be used in the plot
+    years = mdates.YearLocator()
+    months = mdates.MonthLocator()
+    days = mdates.DayLocator()
+    years_fmt = mdates.DateFormatter('%Y')                                      # years format
+    months_fmt = mdates.DateFormatter('%m-%Y')                                  # dates format
+
+    # Plot
+    fig, ax = plt.subplots()
+    ax.plot_date(time, values, 'b-', label = 'max')
+
+    # format the ticks
+    ax.xaxis.set_major_locator(months)
+    ax.xaxis.set_major_formatter(months_fmt)
+    ax.xaxis.set_minor_locator(days)
+    ax.format_xdata = mdates.DateFormatter('%Y-%m-%d')
+    ax.grid(False)
+    ax.set(ylabel = 'Concentration (microgram/m3)')
+    # rotates and right aligns the x labels, and moves the bottom of the
+    # axes up to make room for them
+    fig.autofmt_xdate()
+    plt.legend()
+    plt.figure(figsize = [15,4])
+    fig.savefig('max_hourly_concentration.png')
 
 
 '''
