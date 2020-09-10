@@ -279,7 +279,7 @@ def plot_timeseries(data):
     INPUT: data
     OUTPUT: plot
     '''
-    
+
     # variables to plot (values, time)
     time = mdates.date2num(data['DatetimeEnd'])
     values = data['Concentration']
@@ -385,7 +385,7 @@ print('The unit(s) of measurement is/are:')
 print(large_dataset['UnitOfMeasurement'].unique())
 
 # Exploratory Data Analysis
-EDA_pollution(dataset_coordinates)
+EDA_pollution(large_dataset)
 
-print(dataset_coordinates.head())
-print(pollution_thresholds)
+#print(large_dataset.head())
+#print(pollution_thresholds)
