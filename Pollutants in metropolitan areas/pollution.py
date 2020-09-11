@@ -10,6 +10,8 @@ import matplotlib.dates as mdates
 
 eea_url = 'https://fme.discomap.eea.europa.eu/fmedatastreaming/AirQualityDownload/AQData_Extract.fmw'
 years_list = [str(x) for x in list(range(2013,2021))]
+# main pollutants to be used for classification
+main_pollutants = ['PM2.5', 'PM10', 'NO2', 'O3', 'SO2']
 # maximum pollution thresholds for each caregory in microgram/m3
 # taken from https://www.eea.europa.eu/themes/air/air-quality-index
 pollution_thresholds = pd.DataFrame( data = {
@@ -40,6 +42,8 @@ def choose_from_list(text, list) :
     while (not valid) :
         choice = input(text + ', '.join(list) + '\n')
         if choice.casefold() in map(str.casefold, list) :                       # Case insensitive search
+            valid = True
+        elif choice.casefold() == "" :
             valid = True
         else :
             print('Invalid input. Choose an option from the list.')
@@ -329,7 +333,7 @@ EU_countries = country_city_list[0].unique()                                    
 
 pollutants = pd.read_csv(
     'http://dd.eionet.europa.eu/vocabulary/aq/pollutant/csv',
-     header = 0, usecols = ['URI', 'Notation'], index_col = 'URI')                                 # list of pollutants [name, code]
+     header = 0, usecols = ['URI', 'Notation'], index_col = 'URI')              # list of pollutants [name, code]
 pollutants.index = pollutants.index.str.replace(r'\D', '')                      # replace the url with the code
 
 metadata = pd.read_csv(
@@ -344,26 +348,37 @@ coordinates = pd.read_csv(
 
 '''
 B. Take user input
-    * Country
-    * City
-    * Pollutant
+    * Country : The user needs to choose a country in a list. By hitting ENTER
+    they can choose all, but the dataset is too large and relatively large
+    computer power.
+    * City : The user needs to choose a city in the list or hit enter for all.
+    * Pollutant : The user needs to choose a pollutant from the list of
+    pollutants available for the country.
 '''
 country = choose_from_list('Choose a Country Code :\n', EU_countries).upper()   # Country
-country_pollutants_codes = pd.Series(
-    metadata[metadata.Countrycode == country].AirPollutantCode.unique())        # List of pollutants codes for the country
-# For each pollutant code in the list of pollutant codes, map the notation.
-# The index of the pollutants dataframe coincides with the country-pollutants
-# codes.
-country_pollutants = country_pollutants_codes.map(pollutants['Notation'])       # List of pollutants for the country
 
-cities_list = country_city_list[country_city_list[0] == country][1]
-cities_list = np.append(cities_list, 'all')
+if (country == '') :                                                            # This option requires larger computer power.
 
-city = choose_from_list('Choose a city or type all :\n',
+    city = ''
+    pollutant = choose_from_list('Choose a pollutant :\n', main_pollutants).upper()
+
+else :
+
+    country_pollutants_codes = pd.Series(
+        metadata[metadata.Countrycode == country].AirPollutantCode.unique())    # List of pollutants codes for the country
+    # For each pollutant code in the list of pollutant codes, map the notation.
+    # The index of the pollutants dataframe coincides with the country-pollutants
+    # codes.
+    country_pollutants = country_pollutants_codes.map(pollutants['Notation'])   # List of pollutants for the country
+
+    cities_list = country_city_list[country_city_list[0] == country][1]         # List of cities for the country
+
+    city = choose_from_list('Choose a city or type ENTER for all :\n',
                         cities_list).capitalize()                               # City
 
-pollutant = choose_from_list('Choose a pollutant :\n',
+    pollutant = choose_from_list('Choose a pollutant :\n',
                               country_pollutants).upper()                       # Pollutant
+
 pollutant_code = pollutants[pollutants.Notation == pollutant].index[0]          # Pollutant Code
 
 year1 = choose_from_list('Choose a year to start with:\n', years_list)          # Starting year
@@ -384,8 +399,9 @@ large_dataset = enrich_data(clean_dataset, coordinates)
 print('The unit(s) of measurement is/are:')
 print(large_dataset['UnitOfMeasurement'].unique())
 
+eda = False
 # Exploratory Data Analysis
-EDA_pollution(large_dataset)
+if eda : EDA_pollution(large_dataset)
 
 #print(large_dataset.head())
 #print(pollution_thresholds)
