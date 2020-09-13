@@ -424,6 +424,8 @@ large_dataset = enrich_data(clean_dataset, coordinates)
 
 print('The unit(s) of measurement is/are:')
 print(large_dataset['UnitOfMeasurement'].unique())
+print('The averaging time(s) for measurement is/are:')
+print(large_dataset['AveragingTime'].unique())
 
 eda = False
 # Exploratory Data Analysis
