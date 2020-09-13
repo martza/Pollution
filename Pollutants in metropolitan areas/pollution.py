@@ -166,7 +166,7 @@ def enrich_data(data, coordinates) :
     A FUNCTION that enriches the dataset with the following information:
         * Year, month, day, hour, weekday
         * Season
-        * Local coordinates
+        * Local coordinates, Ai Quality Station Type, Air Quality Station Area
 
     INPUT : the dataset
 
@@ -206,6 +206,12 @@ def EDA_pollution(data) :
     # Grouping by altitude
     data_altitude = data[['Concentration','Altitude']].groupby(['Altitude'],
                     as_index = False).aggregate([np.mean,np.median]).reset_index()
+    # Grouping by altitude
+    data_stationType = data[['Concentration','AirQualityStationType']].groupby(['AirQualityStationType'],
+                        as_index = False).aggregate([np.mean,np.median]).reset_index()
+    # Grouping by altitude
+    data_area = data[['Concentration','AirQualityStationArea']].groupby(['AirQualityStationArea'],
+                    as_index = False).aggregate([np.mean,np.median]).reset_index()
 
     # Checking for duplicates
     duplicates = data[['SamplingPoint','Concentration',
@@ -216,7 +222,10 @@ def EDA_pollution(data) :
 
     # If there are duplicates taking the maximum concentration accross all
     # sampling points. If not, max gives the single sampling point.
-    data_max = data.groupby(['DatetimeEnd'], as_index = False).max().reset_index()
+    data_max = data[['SamplingPoint', 'DatetimeEnd', 'Concentration', 'year',
+                    'month', 'hour', 'weekday', 'season']].groupby(['SamplingPoint',
+                    'DatetimeEnd'], as_index = False).max()
+    print(data_max.head())
     plot_timeseries(data_max)
     #Some statistics on the dataset:
     data_max['Concentration'].describe()
@@ -240,12 +249,7 @@ def EDA_pollution(data) :
                     [np.mean, np.median]).reset_index()
 
     # Plotting
-    fig, (ax0, ax1, ax2, ax3, ax4, ax5) = plt.subplots(6, figsize = (10,20))
-
-    data_altitude.plot.bar(x = 'Altitude',
-        y = [('Concentration','mean'),('Concentration','median')], rot = 0, ax = ax0)
-    ax0.legend(['mean', 'median'])
-    ax0.set(xlabel = 'altitude', ylabel = 'Concentration')
+    fig1, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, figsize = (10,20))
 
     yearly_data['Concentration'].plot.bar(ax = ax1)
     ax1.legend(['mean'])
@@ -273,7 +277,28 @@ def EDA_pollution(data) :
     ax5.legend(["mean", "median"])
     ax5.set(xlabel = 'season', ylabel = "Concentration")
 
-    fig.savefig('EDA.png')
+    fig1.tight_layout()
+    fig1.savefig('EDA_time.png')
+
+    fig2, (ax1, ax2, ax3) = plt.subplots(3, figsize = (10,20))
+
+    data_altitude.plot.bar(x = 'Altitude',
+        y = [('Concentration','mean'),('Concentration','median')], rot = 270, ax = ax1)
+    ax1.legend(['mean', 'median'])
+    ax1.set(xlabel = 'altitude', ylabel = 'Concentration')
+
+    data_stationType.plot.bar(x = 'AirQualityStationType',
+        y = [('Concentration','mean'),('Concentration','median')], rot = 0, ax = ax2)
+    ax2.legend(['mean', 'median'])
+    ax2.set(xlabel = 'Station type', ylabel = 'Concentration')
+
+    data_area.plot.bar(x = 'AirQualityStationArea',
+        y = [('Concentration','mean'),('Concentration','median')], rot = 0, ax = ax3)
+    ax3.legend(['mean', 'median'])
+    ax3.set(xlabel = 'Station Area', ylabel = 'Concentration')
+
+    fig2.savefig('EDA_location.png')
+
 
 
 def plot_timeseries(data):
@@ -344,7 +369,8 @@ metadata.AirPollutantCode = metadata.AirPollutantCode.str.replace(r'\D','')     
 coordinates = pd.read_csv(
     'https://discomap.eea.europa.eu/map/fme/metadata/PanEuropean_metadata.csv',
      sep = '\t', usecols = ['AirQualityStationEoICode', 'Longitude', 'Latitude',
-                            'Altitude']).drop_duplicates()                      # list of sampling points with local coordinates
+                            'Altitude', 'AirQualityStationType',
+                            'AirQualityStationArea']).drop_duplicates()                      # list of sampling points with local coordinates
 
 '''
 B. Take user input
