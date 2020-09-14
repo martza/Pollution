@@ -16,14 +16,14 @@ main_pollutants = ['PM2.5', 'PM10', 'NO2', 'O3', 'SO2']
 # taken from https://www.eea.europa.eu/themes/air/air-quality-index
 pollution_thresholds = pd.DataFrame( data = {
     'pollutant' : ['PM2.5', 'PM10', 'NO2', 'O3', 'SO2'],
-    'Good' : ['10', '20', '40', '50', '100'],
-    'Fair' : ['20', '40', '90', '100', '200'],
-    'Moderate' : ['25', '50', '120', '130', '350'],
-    'Poor' : ['50', '100', '230', '240', '500'],
-    'Very Poor' : ['75', '150', '340', '380', '750'],
-    'Extremely Poor' : ['800', '1200', '1000', '800', '1250']
-}
-)
+    'Good' : [10, 20, 40, 50, 100],
+    'Fair' : [20, 40, 90, 100, 200],
+    'Moderate' : [25, 50, 120, 130, 350],
+    'Poor' : [50, 100, 230, 240, 500],
+    'Very Poor' : [75, 150, 340, 380, 750],
+    'Extremely Poor' : [800, 1200, 1000, 800, 1250],
+})
+pollution_thresholds.set_index('pollutant')
 
 def choose_from_list(text, list) :
 
@@ -431,5 +431,25 @@ eda = False
 # Exploratory Data Analysis
 if eda : EDA_pollution(large_dataset)
 
-#print(large_dataset.head())
-#print(pollution_thresholds)
+ml = True
+if ml :
+    thresholds = pollution_thresholds[pollution_thresholds.pollutant==pollutant].reset_index(drop = True)
+    large_dataset['AQindex'] = ''
+    large_dataset.loc[large_dataset.Concentration <= thresholds['Extremely Poor'][0],'AQindex'] = 'Extremely Poor'
+    large_dataset.loc[large_dataset.Concentration.between(thresholds.Moderate[0],
+                                                          thresholds.Poor[0]), 'AQindex'] = 'Poor'
+    large_dataset.loc[large_dataset.Concentration.between(thresholds.Fair[0],
+                                                          thresholds.Moderate[0]), 'AQindex'] = 'Moderate'
+    large_dataset.loc[large_dataset.Concentration.between(thresholds.Good[0],
+                                                          thresholds.Fair[0]), 'AQindex'] = 'Fair'
+    large_dataset.loc[large_dataset.Concentration <= thresholds.Good[0], 'AQindex'] = 'Good'
+
+    # keep only categorical variables for classification algorithm
+    working_dataset = large_dataset[['year', 'month', 'hour', 'weekday',
+                                     'season', 'Longitude', 'Latitude', 'Altitude',
+                                     'AirQualityStationType', 'AirQualityStationArea',
+                                     'AQindex']]
+
+    #print(working_dataset[working_dataset['AQindex']=='Good'])
+    #print(pollution_thresholds)
+#test_dataset = pd.DataFrame(data = {'Concentration' : 10}, index=(0,1))
