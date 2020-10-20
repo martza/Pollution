@@ -448,6 +448,24 @@ def make_new_dataset(save):
     return large_dataset
 
 
+def add_AQindex(data):
+
+    # Incomplete because I need to pass the pollutant as an argument
+    thresholds = pollution_thresholds[pollution_thresholds.pollutant == pollutant].reset_index(
+            drop=True)
+
+    data['AQindex'] = ''
+
+    data.loc[data.Concentration <= thresholds['Extremely Poor'][0], 'AQindex'] = 'Extremely Poor'
+    data.loc[data.Concentration.between(thresholds.Moderate[0],
+                                    thresholds.Poor[0]), 'AQindex'] = 'Poor'
+    data.loc[data.Concentration.between(thresholds.Fair[0],
+                                    thresholds.Moderate[0]), 'AQindex'] = 'Moderate'
+    data.loc[data.Concentration.between(thresholds.Good[0],
+                                    thresholds.Fair[0]), 'AQindex'] = 'Fair'
+    data.loc[data.Concentration <=thresholds.Good[0], 'AQindex'] = 'Good'
+
+    return data
 
 def main():
     '''
@@ -495,37 +513,8 @@ def main():
     if args.machine_learning:
 
         data = data[ml_variables]
-
-        thresholds = pollution_thresholds[pollution_thresholds.pollutant == pollutant].reset_index(
-            drop=True)
-        data['AQindex'] = ''
-        data.loc[ldata.Concentration <= thresholds['Extremely Poor'][0], 'AQindex'] = 'Extremely Poor'
-        data.loc[data.Concentration.between(thresholds.Moderate[0],
-                                    thresholds.Poor[0]), 'AQindex'] = 'Poor'
-        data.loc[data.Concentration.between(thresholds.Fair[0],
-                                    thresholds.Moderate[0]), 'AQindex'] = 'Moderate'
-        data.loc[data.Concentration.between(thresholds.Good[0],
-                                    thresholds.Fair[0]), 'AQindex'] = 'Fair'
-        data.loc[data.Concentration <=thresholds.Good[0], 'AQindex'] = 'Good'
-
-        working_dataset = data[['year', 'month', 'hour', 'weekday', 'season',
-                                'Altitude', 'AirQualityStationType',
-                                'AirQualityStationArea', 'Concentration', 'AQindex']]
-
-        save_data = True
-
-        if save_data:
-            working_dataset.to_csv('working_dataset.csv', index=False)
-
-        from sklearn.model_selection import train_test_split
-        x_train, x_test, y_train, y_test = train_test_split(temporal_data[['year',
-                                                                           'month', 'hour', 'weekday', 'season']],
-                                                            temporal_data['AQindex'],
-                                                            random_state=0)
-        print('x_train_shape : ', x_train.shape)
-        print('y_train_shape : ', y_train.shape)
-        print('x_test_shape : ', x_test.shape)
-        print('y_test_shape : ', y_test.shape)
+        AQ_index = False
+        if AQ_index : data = add_AQindex(data)                                  # Needs pollutant name
 
         # print(working_dataset[working_dataset['AQindex']=='Good'])
         # print(pollution_thresholds)
