@@ -8,6 +8,10 @@ import sys
 import os
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import datetime
+
+
+from descriptive_analytics import get_coordinates_data, find_cluster, get_data_for_prediction
 
 eea_url = 'https://fme.discomap.eea.europa.eu/fmedatastreaming/AirQualityDownload/AQData_Extract.fmw'
 years_list = [str(x) for x in list(range(2013, 2021))]
@@ -27,8 +31,13 @@ pollution_thresholds = pd.DataFrame(data={
 pollution_thresholds.set_index('pollutant')
 # list of variables for machine learning
 ml_variables = ['Concentration', 'year', 'month', 'day', 'hour', 'weekday',
-                'season', 'Longitude', 'Latitude', 'Altitude',
-                'AirQualityStationType', 'AirQualityStationArea']
+                'Longitude', 'Latitude', 'Altitude']
+
+coordinates = pd.read_csv(
+    'https://discomap.eea.europa.eu/map/fme/metadata/PanEuropean_metadata.csv',
+    sep='\t', usecols=['AirQualityStationEoICode', 'Longitude', 'Latitude',
+    'Altitude', 'AirQualityStationType', 'AirQualityStationArea']).drop_duplicates()          # list of sampling points with local coordinates
+
 
 def choose_from_list(text, list):
     '''
@@ -374,12 +383,6 @@ def make_new_dataset(save):
         sep='\t', usecols=['Countrycode', 'AirPollutantCode']).drop_duplicates()
     metadata.AirPollutantCode = metadata.AirPollutantCode.str.replace(r'\D', '')# replace the url with the code
 
-    coordinates = pd.read_csv(
-        'https://discomap.eea.europa.eu/map/fme/metadata/PanEuropean_metadata.csv',
-        sep='\t', usecols=['AirQualityStationEoICode', 'Longitude', 'Latitude',
-                           'Altitude', 'AirQualityStationType',
-                           'AirQualityStationArea']).drop_duplicates()          # list of sampling points with local coordinates
-
     '''
     B. Take user input
         * Country : The user needs to choose a country in a list. By hitting ENTER
@@ -428,24 +431,12 @@ def make_new_dataset(save):
     time_elapsed = time.perf_counter()-start_time
     print(f'It took {time_elapsed:.3f} seconds to extract the dataset.')
 
-    # Data preparation
-    clean_dataset = clean_data(dataset)
-
-    # Link data to coordinates
-    large_dataset = link_data(clean_dataset, coordinates)
-
-    print('The unit(s) of measurement is/are:')
-    print(large_dataset['UnitOfMeasurement'].unique())
-    print('The averaging time(s) for measurement is/are:')
-    print(large_dataset['AveragingTime'].unique())
-    print('The final dataset includes :\n',','.join(large_dataset.columns))
-
     if save :
         filename = 'data\\'+country+'_'+city+'_'+pollutant_code+'_'+year1+'_'+year2+'.csv'
         print('Saving the dataset to ',filename)
-        large_dataset.to_csv(filename, index=False)
+        dataset.to_csv(filename, index=False)
 
-    return large_dataset
+    return dataset
 
 
 def add_AQindex(data):
@@ -467,6 +458,13 @@ def add_AQindex(data):
 
     return data
 
+def valid_date(s):
+    try:
+        return datetime.datetime.strptime(s,  "%Y-%m-%d")
+    except ValueError:
+        msg = "Not a valid date: '{0}'.".format(s)
+        raise argparse.ArgumentTypeError(msg)
+
 def main():
     '''
     This code takes multiple input from the user and returns dataset.
@@ -487,28 +485,64 @@ def main():
 
     # It is not allowed to parse a data file and save data in a data file. The
     # user can either parse an existing file with data or create a new dataset
-    # and export it to a file with 'save'.
+    # and export it to a file with 'save'. For predictions the dataset is created
+    # around the user input.
     group_data = parser.add_mutually_exclusive_group()
     group_data.add_argument('-df','--datafile', action='store',
                         nargs = '?', help = 'Parse a file with data')
-    group_data.add_argument('-s', '--save', nargs = '?', default = False, const = True, type=bool,
-                        help = 'Save dataset')
+    group_data.add_argument('-p', '--prediction', nargs = '?', default = False,
+                        const = True, type=bool, help = 'Make a prediction')
 
-    parser.add_argument('-ml', '--machine-learning', nargs = '?', default = False, const = True, type = bool,
+    parser.add_argument('-ml', '--machine-learning', nargs = '?',
+                        default = False, const = True, type = bool,
                         help = 'Perform machine-learning')
     parser.add_argument('-m', '--model', action = 'store', nargs = '?',
                         default = 'Decision Tree',
                         help='Choose a machine-learning model')
-    parser.add_argument('-p', '--prediction', action = 'store',
-                        help='Perform a prediction', nargs='?')
+
+    parser.add_argument('-coord', '--coordinates', action = 'store', type = float,
+                        nargs = 2, help='Get (lon, lat) for prediction')
+    parser.add_argument('-d', '--date', action = 'store',
+                        nargs = '?', default = datetime.date.today(),
+                        type = valid_date, help='Get date for prediction')
+    parser.add_argument('-pol', '--pollutant', action = 'store',
+                        nargs = '?', choices = main_pollutants,
+                        help='Get pollutant for prediction')
+
+    parser.add_argument('-s', '--save', nargs = '?', default = False,
+                        const = True, type=bool, help = 'Save dataset')
 
     args = parser.parse_args()
 
     if args.datafile : data = pd.read_csv(args.datafile)
+    elif args.prediction:
+        new = args.coordinates
+        date = args.date
+        coordinates_data, stations = get_coordinates_data(args.pollutant)
+        station_ids = find_cluster(coordinates_data, new, stations)
+        data = get_data_for_prediction(args.pollutant, station_ids)
+        if args.save :
+            filename = 'data\\prediction_'+args.pollutant+'.csv'
+            print('Saving the dataset to ',filename)
+            data.to_csv(filename, index=False)
+
     else : data = make_new_dataset(args.save)
 
     # Exploratory Data Analysis
-    if args.eda: EDA_pollution(data)
+    if args.eda:
+         # Data preparation
+        clean_dataset = clean_data(data)
+
+        # Link data to coordinates
+        data = link_data(clean_dataset, coordinates)
+
+        print('The unit(s) of measurement is/are:')
+        print(data['UnitOfMeasurement'].unique())
+        print('The averaging time(s) for measurement is/are:')
+        print(data['AveragingTime'].unique())
+        print('The final dataset includes :\n',','.join(data.columns))
+
+        EDA_pollution(data)
 
     if args.machine_learning:
 
@@ -519,6 +553,7 @@ def main():
         # print(working_dataset[working_dataset['AQindex']=='Good'])
         # print(pollution_thresholds)
         #test_dataset = pd.DataFrame(data = {'Concentration' : 10}, index=(0,1))
+
 
 
 if __name__ == '__main__':
