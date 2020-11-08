@@ -1,3 +1,6 @@
 .vscode/
 air-quality-index.code-workspace
 data/
+development.py
+__pycache__/
+cache/
