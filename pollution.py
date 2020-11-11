@@ -528,11 +528,6 @@ def main():
         coordinates_data, stations = get_coordinates_data(args.pollutant)
         station_ids = find_cluster(coordinates_data, new, stations)
         data = get_data_for_prediction(args.pollutant, station_ids)
-        if args.save :
-            filename = 'data\\prediction_'+args.pollutant+'.csv'
-            print('Saving the dataset to ',filename)
-            data.to_csv(filename, index=False)
-
     else : data = make_new_dataset(args.save)
 
     # Exploratory Data Analysis
@@ -554,6 +549,13 @@ def main():
             'AirQualityStationArea']
         print('For EDA we use ', eda_columns)
         EDA_pollution(data[eda_columns])
+
+    if args.save :
+        columns = ['year','month','day','hour','weekday','season','Longitude','Latitude','Altitude','Concentration']
+        print('We keep the columns ',columns)
+        filename = 'data\\prediction_'+args.pollutant+'.csv'
+        print('Saving the dataset to ',filename)
+        data[columns].to_csv(filename, index=False)
 
     if args.machine_learning:
 
