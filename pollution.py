@@ -242,47 +242,35 @@ def EDA_pollution(data):
 
     # Grouping by altitude
     data_altitude = data[['Concentration', 'Altitude']].groupby(['Altitude'],
-                                                                as_index=False).aggregate([np.mean, np.median]).reset_index()
+        as_index=False).aggregate([np.mean, np.median]).reset_index()
     # Grouping by altitude
     data_stationType = data[['Concentration', 'AirQualityStationType']].groupby(['AirQualityStationType'],
-                                                                                as_index=False).aggregate([np.mean, np.median]).reset_index()
+        as_index=False).aggregate([np.mean, np.median]).reset_index()
     # Grouping by altitude
     data_area = data[['Concentration', 'AirQualityStationArea']].groupby(['AirQualityStationArea'],
-                                                                         as_index=False).aggregate([np.mean, np.median]).reset_index()
+        as_index=False).aggregate([np.mean, np.median]).reset_index()
 
     # Checking for duplicates
-    duplicates = data[['SamplingPoint', 'Concentration',
-                       'DatetimeEnd']].groupby(['SamplingPoint', 'DatetimeEnd'],
-                                               as_index=False).count()
+    duplicates = sum(data.drop('Concentration', axis = 1).duplicated())
+    print(f'Found {duplicates} duplicates.')
 
-    print(
-        f'Found maximum {duplicates.Concentration.max()} measurements for the same point')
-
-    # If there are duplicates taking the maximum concentration accross all
-    # sampling points. If not, max gives the single sampling point.
-    data_max = data[['SamplingPoint', 'DatetimeEnd', 'Concentration', 'year',
-                     'month', 'hour', 'weekday', 'season']].groupby(['SamplingPoint',
-                                                                     'DatetimeEnd'], as_index=False).max()
-    print(data_max.head())
-    plot_timeseries(data_max)
-    # Some statistics on the dataset:
-    data_max['Concentration'].describe()
+    plot_timeseries(data)
 
     # Grouping by year, month, hour, weekday, season
-    yearly_data = data_max[['Concentration', 'year']].groupby(['year']).mean()
+    yearly_data = data[['Concentration', 'year']].groupby(['year']).mean()
 
-    monthly_data = data_max[['Concentration', 'year', 'month']].groupby(
+    monthly_data = data[['Concentration', 'year', 'month']].groupby(
         ['year', 'month']).mean()
 
-    hourly_data = data_max[['DatetimeEnd', 'Concentration', 'hour']].groupby(
+    hourly_data = data[['DatetimeEnd', 'Concentration', 'hour']].groupby(
         ['hour'], as_index=False).aggregate(
         [np.mean, np.median]).reset_index()
 
-    weekday_data = data_max[['DatetimeEnd', 'Concentration', 'weekday']].groupby(
+    weekday_data = data[['DatetimeEnd', 'Concentration', 'weekday']].groupby(
         ['weekday'], as_index=False).aggregate(
         [np.mean, np.median]).reset_index()
 
-    seasonal_data = data_max[['DatetimeEnd', 'Concentration', 'season']].groupby(
+    seasonal_data = data[['DatetimeEnd', 'Concentration', 'season']].groupby(
         ['season'], as_index=False).aggregate(
         [np.mean, np.median]).reset_index()
 
@@ -377,7 +365,7 @@ def plot_timeseries(data):
     fig.autofmt_xdate()
     plt.legend()
     plt.figure(figsize=[15, 4])
-    fig.savefig('output\max_hourly_concentration.png')
+    fig.savefig('output\hourly_concentration.png')
 
 
 def make_new_dataset(save):
@@ -559,9 +547,13 @@ def main():
         print(data['UnitOfMeasurement'].unique())
         print('The averaging time(s) for measurement is/are:')
         print(data['AveragingTime'].unique())
-        print('The final dataset includes :\n',','.join(data.columns))
+        print('The dataset includes :\n',','.join(data.columns))
 
-        EDA_pollution(data)
+        eda_columns = ['Concentration','DatetimeEnd','year','month','day','hour',
+            'weekday','season','Longitude','Latitude','Altitude','AirQualityStationType',
+            'AirQualityStationArea']
+        print('For EDA we use ', eda_columns)
+        EDA_pollution(data[eda_columns])
 
     if args.machine_learning:
 
