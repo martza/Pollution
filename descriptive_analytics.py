@@ -40,7 +40,6 @@ def print_clusters_info(data):
     print('The largest cluster is ', idx_bigger[0],'\n')
     print('The largest cluster contains ', count.max()[0],'points \n')
 
-    big_cluster = data[data.Cluster == idx_bigger[0]]
     # big_cluster = data[data.Cluster == idx_bigger[0]]
 
 def find_cluster(locations, new, stations, method = 'agglomerative', linkage = 'complete', verbose = False):
@@ -184,3 +183,44 @@ if __name__ == '__main__':
         print('Saving the dataset to ',filename)
         data.to_csv(filename, index=False)
 
+    if get_data:
+        data = pd.read_csv('data\\prediction_SO2.csv',
+            parse_dates=['DatetimeBegin', 'DatetimeEnd'], infer_datetime_format = True)
+        print(data.columns)
+        print(data.info)
+        print('There are', sum(data.Validity == -1),' invalid points')
+        print('Removing invalid points...')
+        data = data[data.Validity == 1]
+        print('There are ',sum(data.Concentration.isna()),'missing values in Concentration')
+
+        # Add to the dataset year, day, month, hour, weekday columns
+        data['year'] = pd.DatetimeIndex(data['DatetimeEnd']).year
+        data['month'] = pd.DatetimeIndex(data['DatetimeEnd']).month
+        data['day'] = pd.DatetimeIndex(data['DatetimeEnd']).day
+        data['hour'] = pd.DatetimeIndex(data['DatetimeEnd']).hour
+        data['weekday'] = data['DatetimeEnd'].dt.dayofweek
+
+        data[data.Verification == 3].year.unique()
+        data.year.unique()
+        provisional = sum(data.Verification == 3)
+        preliminary = sum(data.Verification == 2)
+        verified = sum(data.Verification == 1)
+        total = data.shape[0]
+        print(provisional/total,' of the data are provisional.')
+        print(preliminary/total,' of the data are preliminary.')
+        print(verified/total,' of the data are verified.')
+
+        data.DatetimeEnd[0].to_pydatetime().month
+
+        # Getting read of negative values.
+        stations_to_calibrate2 = data.loc[(data.Concentration < 0) & (data.Verification == 2),'AirQualityStation'].unique()
+        data1 = calibration(data, stations_to_calibrate2)
+        stations_to_calibrate3 = data1.loc[(data1.Concentration < 0) & (data1.Verification == 3),'AirQualityStation'].unique()
+        data2 = calibration(data1, stations_to_calibrate3)
+
+        negatives = sum(data2.Concentration < 0)
+        print('There are ', negatives, ' negative Concentation points in the dataset.')
+        print('The maximum Concentration is ', data2.Concentration.max())
+        print('The minimum Concentration is ', data2.Concentration.min())
+
+        # For the station I need to augment all measurements by the minimum.
