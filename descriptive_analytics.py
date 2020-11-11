@@ -41,31 +41,45 @@ def print_clusters_info(data):
     print('The largest cluster contains ', count.max()[0],'points \n')
 
     big_cluster = data[data.Cluster == idx_bigger[0]]
+    # big_cluster = data[data.Cluster == idx_bigger[0]]
 
-def find_cluster(data, new, stations):
-    from sklearn.cluster import AgglomerativeClustering
+def find_cluster(locations, new, stations, method = 'agglomerative', linkage = 'complete', verbose = False):
+    from sklearn.cluster import AgglomerativeClustering, KMeans, DBSCAN
 
     # Ensure that the clusters are equally distributed geographically by specifying
     # a distance threshold
-    X = data.drop('AirQualityStationEoICode',axis=1)
+    X = locations.drop('AirQualityStationEoICode',axis=1)
 
-    clustering = AgglomerativeClustering(n_clusters=None, affinity='euclidean', memory='cache',
-                        connectivity=None, compute_full_tree='auto', linkage='complete',
+    if (method == 'kmeans'):
+        clustering = KMeans(n_clusters = 100, n_init = 10, algorithm = 'auto').fit(X)
+        if verbose:
+            print('The cluster centers are: \n', clustering.cluster_centers_)
+            print('The inertia is: \n', clustering.inertia_)
+            print('The labels of the cluster are: \n', list(clustering.labels_))
+    elif (method == 'dbscan'):
+        clustering = DBSCAN(eps = 0.5, min_samples = 1, metric = 'euclidean',
+            algorithm = 'auto').fit(X)
+        if verbose:
+            print('The indices of the core samples are:\n', clustering.core_sample_indices_)
+            print('The components for each core sample are:\n', clustering.components_)
+    else :
+        clustering = AgglomerativeClustering(n_clusters=None, affinity='euclidean', memory='cache',
+                        connectivity=None, compute_full_tree='auto', linkage = linkage,
                         distance_threshold=2.0).fit(X)
 
+
+    # Store the cluster index in new column and count the number of points per cluster.
+    # Then find the cluster with the largest number of points just to check... To put
+    # in a function.
+
+    locations['Cluster'] = clustering.labels_
+    print_clusters_info(locations)
     #linkage = ward(clustering.children_)
 
     #plt.title('Hierarchical Clustering Dendrogram')
     #dendrogram(linkage, truncate_mode='level', p=3)
     #plt.xlabel("Number of points in node (or index of point if no parenthesis).")
     #plt.show()
-
-    # Store the cluster index in new column and count the number of points per cluster.
-    # Then find the cluster with the largest number of points just to check... To put
-    # in a function.
-
-    data['Cluster'] = clustering.labels_
-    print_clusters_info(data)
 
     # Take a new geographic location and add it to the dataset
     #new = np.array([4.7038946, 50.8864501])
@@ -86,7 +100,7 @@ def find_cluster(data, new, stations):
 
     # Get the coordinates in the cluster and merge it with the airquality station information
     df1 = df[df.Cluster==cluster][['Longitude','Latitude']]
-    df2 = pd.merge(df1, data, how = 'inner', on = ['Longitude', 'Latitude'])
+    df2 = pd.merge(df1, locations, how = 'inner', on = ['Longitude', 'Latitude'])
     print('There are ',len(df2.AirQualityStationEoICode.unique()),'stations in the cluster')
     station_ids = df2.AirQualityStationEoICode.unique()
     print('The stations are :\n',station_ids)
@@ -127,8 +141,46 @@ def get_data_for_prediction(pollutant, station_ids):
         data.AirQualityStationEoICode.unique())
     return data
 
+def calibration(data, stations):
+    for station in stations:
+        data_station = data[data.AirQualityStation == station]
+        background = -data_station.Concentration.min()
+        new_concentration = data_station.Concentration + background
+        data.loc[data.AirQualityStation == station,'Concentration'] = new_concentration
+    return data
+
 # Find nearest neighbors
 #### Testing
 if __name__ == '__main__':
-    main()
+    new = [4.7038946, 50.8864501]
+    coordinates_data, stations = get_coordinates_data('SO2')
+
+    test_clustering = False
+    clustering = 'agglomerative'
+    save_data = False
+    get_data = True
+
+    if test_clustering:
+        if (clustering == 'kmeans' or clustering == 'all'):
+            print('TRYING K-Means CLUSTERING...')
+            print(coordinates_data.columns)
+            station_ids = find_cluster(coordinates_data, new, stations,
+                method = 'kmeans')
+            coordinates_data = coordinates_data.drop('Cluster', axis = 1)
+        elif (clustering == 'agglomerative' or clustering == 'all'):
+            print(coordinates_data.columns)
+            print('TRYING Agglomerative CLUSTERING...')
+            station_ids = find_cluster(coordinates_data, new, stations)
+            coordinates_data = coordinates_data.drop('Cluster', axis = 1)
+        elif (clustering == 'dbscan' or clustering == 'all'):
+            print(coordinates_data.columns)
+            print('TRYING DBSCAN CLUSTERING...')
+            station_ids = find_cluster(coordinates_data, new, stations,
+                method = 'dbscan', verbose = True)
+
+    if save_data:
+        data = get_data_for_prediction('SO2', station_ids)
+        filename = 'data\\prediction_SO2.csv'
+        print('Saving the dataset to ',filename)
+        data.to_csv(filename, index=False)
 

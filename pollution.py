@@ -11,7 +11,7 @@ import matplotlib.dates as mdates
 import datetime
 
 
-from descriptive_analytics import get_coordinates_data, find_cluster, get_data_for_prediction
+from descriptive_analytics import get_coordinates_data, find_cluster, get_data_for_prediction, calibration
 
 eea_url = 'https://fme.discomap.eea.europa.eu/fmedatastreaming/AirQualityDownload/AQData_Extract.fmw'
 years_list = [str(x) for x in list(range(2013, 2021))]
@@ -130,32 +130,28 @@ def clean_data(data):
 
     '''
 
-    # Subatitute NA with 0 in the Concentration
-    data['Concentration'] = data['Concentration'].fillna(0)
+    # Check for NAs
+    print('There are ',sum(data.Concentration.isna()),'missing values in Concentration.')
+    print(f'There are {sum(data.Validity.isna()):.0f} points missing validation data.')
+    print(f'There are {sum(data.Verification.isna()):.0f} points lacking verification data.')
 
-    # Check for NA in Validity
-    unvalid_points = pd.isna(data['Validity']).sum()
-    print(f'There are {unvalid_points:.0f} points missing validation data.')
+    # Drop NAs
+    print('We remove points that are missing concentration, validity or verification data...')
+    data.dropna(axis = 0, subset = ['Concentration', 'Validity', 'Verification'],
+                inplace = True)
 
-    # Check for invalid points
+    # Visualise verified and valid points
+    print('Have a look at data/check.png for invalid and unverified points')
     validity_counts = data[['Concentration', 'Validity']
                            ].groupby(['Validity']).count()
     validity_counts = validity_counts.rename(
         columns={'Concentration': 'Counts'})
 
-    # Check for NAs in Verification
-    unverified_points = pd.isna(data['Verification']).sum()
-    print(
-        f'There are {unverified_points:.0f} points lacking verification data.')
-
-    # Check for data that lack verification
     verification_counts = data[['Concentration', 'Verification']].groupby(
         ['Verification']).count()
     verification_counts = verification_counts.rename(
         columns={'Concentration': 'Counts'})
-    # Note that most of the data for 2019 and 2020 are not verified
 
-    # Visualise verified and valid points
     fig, (ax1, ax2) = plt.subplots(2, figsize=(10, 10))
 
     ax1.bar(verification_counts.index, 'Counts', data=verification_counts,
@@ -170,8 +166,31 @@ def clean_data(data):
 
     fig.savefig('output\check.png')
 
-    # Remove invalid data, accept data that lack verification
-    data = data[data['Validity'] == 1]  # Getting rid of invalid data
+    # Remove invalid data
+    print('There are', sum(data.Validity == -1),' invalid points')
+    print('Removing invalid points...')
+    data = data[data.Validity == 1]
+
+    # Check for unverified points
+    provisional = sum(data.Verification == 3)
+    preliminary = sum(data.Verification == 2)
+    verified = sum(data.Verification == 1)
+    total = data.shape[0]
+    print(provisional/total,' of the data are provisional.')
+    print(preliminary/total,' of the data are preliminary.')
+    print(verified/total,' of the data are verified.')
+
+    # Getting rid of negative concentration values.
+    stations_to_calibrate2 = data.loc[(data.Concentration < 0) & (data.Verification == 2),'AirQualityStation'].unique()
+    data = calibration(data, stations_to_calibrate2)
+    stations_to_calibrate3 = data.loc[(data.Concentration < 0) & (data.Verification == 3),'AirQualityStation'].unique()
+    data = calibration(data, stations_to_calibrate3)
+
+    negatives = sum(data.Concentration < 0)
+    print('There are ', negatives, ' negative Concentation points in the dataset.')
+    print('The maximum Concentration is ', data.Concentration.max())
+    print('The minimum Concentration is ', data.Concentration.min())
+
     # Order data by datetime
     data = data.sort_values(by='DatetimeEnd')
 
