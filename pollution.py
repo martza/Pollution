@@ -512,6 +512,9 @@ def main():
     parser.add_argument('-d', '--date', action = 'store',
                         nargs = '?', default = datetime.date.today(),
                         type = valid_date, help='Get date for prediction')
+    parser.add_argument('-h', '--hour', action = 'store',
+                        nargs = '?', default = 9,
+                        type = int, help='Get time for prediction')
     parser.add_argument('-pol', '--pollutant', action = 'store',
                         nargs = '?', choices = main_pollutants,
                         help='Get pollutant for prediction')
@@ -523,11 +526,31 @@ def main():
 
     if args.datafile : data = pd.read_csv(args.datafile)
     elif args.prediction:
-        new = args.coordinates
+        coord = args.coordinates
         date = args.date
+
+        # Find cluster of local points
         coordinates_data, stations = get_coordinates_data(args.pollutant)
-        station_ids = find_cluster(coordinates_data, new, stations)
+        station_ids = find_cluster(coordinates_data, coord, stations)
         data = get_data_for_prediction(args.pollutant, station_ids)
+
+        # Get the new point for prediction
+        if date.month.isin([12, 1, 2]):
+            season = 'winter'
+        elif date.month.isin([3, 4, 5]):
+            season = 'spring'
+        elif date.month.isin([6, 7, 8]):
+            season = 'summer'
+        else:
+            season = 'autumn'
+
+        new_data = {'Longitude':coord[0], 'Latitude':coord[1], 'year':date.year,
+               'month':date.month, 'day':date.day, 'weekday':date.weekday(),
+               'hour':args.hour, 'season':season}
+        new = pd.DataFrame(new_data)
+
+        # classification
+
     else : data = make_new_dataset(args.save)
 
     # Exploratory Data Analysis
